@@ -1,17 +1,17 @@
-#include <Wire.h>
+[08.02.2025, 19:33:35] Юсуф: #include <Wire.h>
 #include "MAX30105.h"
-#include "heartRate.h" // Алгоритм для расчета ЧСС
-#include <Adafruit_SSD1306.h> // Библиотека для OLED-дисплея
+#include "heartRate.h" // Algorithm for calculating heart rate
+#include <Adafruit_SSD1306.h> // Library for OLED display
 
-#define SCREEN_WIDTH 128 // Ширина дисплея
-#define SCREEN_HEIGHT 64 // Высота дисплея
-#define BUZZER_PIN 25    // Пин зуммера
-#define PIEZO_PIN A0     // Пин пьезоэлектрического датчика
+#define SCREEN_WIDTH 128 // Width of the display
+#define SCREEN_HEIGHT 64 // Height of the display
+#define BUZZER_PIN 25    // Buzzer pin
+#define PIEZO_PIN A0     // Piezoelectric sensor pin
 
 MAX30105 particleSensor;
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 
-#define debug Serial // Для отладки через Serial
+#define debug Serial // For debugging via Serial
 
 float spo2 = 0.0;
 int heartRate = 0;
@@ -21,24 +21,24 @@ int criticalBreathCounter = 0;
 void setup()
 {
   debug.begin(9600);
-  debug.println("Инициализация...");
+  debug.println("Initializing...");
 
-  // Инициализация зуммера
+  // Buzzer initialization
   pinMode(BUZZER_PIN, OUTPUT);
   digitalWrite(BUZZER_PIN, LOW);
 
-  // Инициализация MAX30102
+  // MAX30102 initialization
   if (!particleSensor.begin()) {
-    debug.println("MAX30102 не найден. Проверьте подключение!");
+    debug.println("MAX30102 not found. Check the connection!");
     while (1);
   }
   particleSensor.setup();
-  particleSensor.setPulseAmplitudeRed(0x0A); // Низкая мощность красного светодиода
-  particleSensor.setPulseAmplitudeGreen(0); // Зеленый светодиод выключен
+  particleSensor.setPulseAmplitudeRed(0x0A); // Low power for red LED
+  particleSensor.setPulseAmplitudeGreen(0); // Green LED off
 
-  // Инициализация дисплея
+  // Display initialization
   if (!display.begin(SSD1306_I2C_ADDRESS, 0x3C)) {
-    debug.println("Не удалось инициализировать дисплей!");
+    debug.println("Failed to initialize the display!");
     while (1);
   }
   display.clearDisplay();
@@ -47,23 +47,23 @@ void setup()
 
 void loop()
 {
-  // Получение данных от MAX30102
+  // Get data from MAX30102
   long red = particleSensor.getRed();
   long ir = particleSensor.getIR();
 
   if (ir < 50000) {
-    displayData("Нет пальца", "", "", "");
+    displayData("No finger", "", "", "");
     return;
   }
 
-  // Расчет SpO2
+  // Calculate SpO2
   float R = (float)red / (float)ir;
   spo2 = 104.0 - 17.0 * R;
 
-  // Расчет ЧСС
+  // Calculate heart rate
   heartRate = checkHeartRate(ir);
 
-  // Считывание данных с пьезоэлектрического датчика
+  // Read data from piezoelectric sensor
   int piezoValue = analogRead(PIEZO_PIN);
   if (piezoValue > 1000) {
     criticalBreathCounter++;
@@ -71,18 +71,18 @@ void loop()
     criticalBreathCounter = 0;
   }
   
-  // Расчет ЧДД (имитация данных)
+  // Calculate respiratory rate (simulation)
   breathRate = calculateBreathRate(piezoValue);
 
-  // Проверка на критические параметры
+  // Check for critical parameters
   if (spo2 < 95 || heartRate > 150 || criticalBreathCounter > 300) {
     triggerAlarm();
   } else {
     digitalWrite(BUZZER_PIN, LOW);
   }
 
-  // Вывод данных на дисплей
-  displayData("SpO2:", String(spo2, 1) + "%", "ЧСС:", String(heartRate) + " уд/мин");
+  // Display data on the screen
+  displayData("SpO2:", String(spo2, 1) + "%", "HR:", String(heartRate) + " bpm");
   delay(1000);
 }
 
@@ -97,7 +97,7 @@ int checkHeartRate(long irValue) {
     lastBeat = currentTime;
 
     int bpm = 60 / (delta / 1000.0);
-    bpm = constrain(bpm, 30, 180); // Ограничиваем ЧСС разумными пределами
+    bpm = constrain(bpm, 30, 180); // Limit HR to reasonable bounds
     
     rates[rateIndex++] = bpm;
     rateIndex %= 4;
@@ -110,13 +110,13 @@ int checkHeartRate(long irValue) {
 }
 
 int calculateBreathRate(int piezoValue) {
-  // Имитация расчета частоты дыхания, можно заменить реальным алгоритмом
+  // Simulated respiratory rate calculation, replace with real algorithm if needed
   return map(piezoValue, 0, 1023, 10, 30);
 }
 
 void triggerAlarm() {
   digitalWrite(BUZZER_PIN, HIGH);
-  debug.println("КРИТИЧЕСКИЕ ПАРАМЕТРЫ!");
+  debug.println("CRITICAL PARAMETERS!");
 }
 
 void displayData(String label1, String value1, String label2, String value2) {
@@ -136,4 +136,4 @@ void displayData(String label1, String value1, String label2, String value2) {
 
   display.display();
 }
-[08.02.2025, 18:55:06] Юсуф: вот
+[08.02.2025, 19:33:45] Юсуф: можешь это впис
