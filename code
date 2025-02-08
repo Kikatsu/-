@@ -1,4 +1,4 @@
-[08.02.2025, 19:33:35] Юсуф: #include <Wire.h>
+#include <Wire.h>
 #include "MAX30105.h"
 #include "heartRate.h" // Algorithm for calculating heart rate
 #include <Adafruit_SSD1306.h> // Library for OLED display
@@ -136,4 +136,3 @@ void displayData(String label1, String value1, String label2, String value2) {
 
   display.display();
 }
-[08.02.2025, 19:33:45] Юсуф: можешь это впис
