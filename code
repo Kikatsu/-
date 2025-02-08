@@ -1,0 +1,139 @@
+#include <Wire.h>
+#include "MAX30105.h"
+#include "heartRate.h" // Алгоритм для расчета ЧСС
+#include <Adafruit_SSD1306.h> // Библиотека для OLED-дисплея
+
+#define SCREEN_WIDTH 128 // Ширина дисплея
+#define SCREEN_HEIGHT 64 // Высота дисплея
+#define BUZZER_PIN 25    // Пин зуммера
+#define PIEZO_PIN A0     // Пин пьезоэлектрического датчика
+
+MAX30105 particleSensor;
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
+
+#define debug Serial // Для отладки через Serial
+
+float spo2 = 0.0;
+int heartRate = 0;
+int breathRate = 0;
+int criticalBreathCounter = 0;
+
+void setup()
+{
+  debug.begin(9600);
+  debug.println("Инициализация...");
+
+  // Инициализация зуммера
+  pinMode(BUZZER_PIN, OUTPUT);
+  digitalWrite(BUZZER_PIN, LOW);
+
+  // Инициализация MAX30102
+  if (!particleSensor.begin()) {
+    debug.println("MAX30102 не найден. Проверьте подключение!");
+    while (1);
+  }
+  particleSensor.setup();
+  particleSensor.setPulseAmplitudeRed(0x0A); // Низкая мощность красного светодиода
+  particleSensor.setPulseAmplitudeGreen(0); // Зеленый светодиод выключен
+
+  // Инициализация дисплея
+  if (!display.begin(SSD1306_I2C_ADDRESS, 0x3C)) {
+    debug.println("Не удалось инициализировать дисплей!");
+    while (1);
+  }
+  display.clearDisplay();
+  display.display();
+}
+
+void loop()
+{
+  // Получение данных от MAX30102
+  long red = particleSensor.getRed();
+  long ir = particleSensor.getIR();
+
+  if (ir < 50000) {
+    displayData("Нет пальца", "", "", "");
+    return;
+  }
+
+  // Расчет SpO2
+  float R = (float)red / (float)ir;
+  spo2 = 104.0 - 17.0 * R;
+
+  // Расчет ЧСС
+  heartRate = checkHeartRate(ir);
+
+  // Считывание данных с пьезоэлектрического датчика
+  int piezoValue = analogRead(PIEZO_PIN);
+  if (piezoValue > 1000) {
+    criticalBreathCounter++;
+  } else {
+    criticalBreathCounter = 0;
+  }
+  
+  // Расчет ЧДД (имитация данных)
+  breathRate = calculateBreathRate(piezoValue);
+
+  // Проверка на критические параметры
+  if (spo2 < 95 || heartRate > 150 || criticalBreathCounter > 300) {
+    triggerAlarm();
+  } else {
+    digitalWrite(BUZZER_PIN, LOW);
+  }
+
+  // Вывод данных на дисплей
+  displayData("SpO2:", String(spo2, 1) + "%", "ЧСС:", String(heartRate) + " уд/мин");
+  delay(1000);
+}
+
+int checkHeartRate(long irValue) {
+  static int rates[4];
+  static int rateIndex = 0;
+  static long lastBeat = 0;
+  long currentTime = millis();
+
+  if (checkForBeat(irValue)) {
+    long delta = currentTime - lastBeat;
+    lastBeat = currentTime;
+
+    int bpm = 60 / (delta / 1000.0);
+    bpm = constrain(bpm, 30, 180); // Ограничиваем ЧСС разумными пределами
+    
+    rates[rateIndex++] = bpm;
+    rateIndex %= 4;
+
+    int sum = 0;
+    for (int i = 0; i < 4; i++) sum += rates[i];
+    return sum / 4;
+  }
+  return heartRate;
+}
+
+int calculateBreathRate(int piezoValue) {
+  // Имитация расчета частоты дыхания, можно заменить реальным алгоритмом
+  return map(piezoValue, 0, 1023, 10, 30);
+}
+
+void triggerAlarm() {
+  digitalWrite(BUZZER_PIN, HIGH);
+  debug.println("КРИТИЧЕСКИЕ ПАРАМЕТРЫ!");
+}
+
+void displayData(String label1, String value1, String label2, String value2) {
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setTextColor(SSD1306_WHITE);
+
+  display.setCursor(0, 0);
+  display.print(label1);
+  display.setCursor(64, 0);
+  display.print(value1);
+
+  display.setCursor(0, 16);
+  display.print(label2);
+  display.setCursor(64, 16);
+  display.print(value2);
+
+  display.display();
+}
+[08.02.2025, 18:55:06] Юсуф: вот
